@@ -9,7 +9,7 @@ import logging
 import os
 from datetime import datetime
 
-from openai import AsyncOpenAI, OpenAIError
+from openai import OpenAIError
 from openai.types.chat import ChatCompletion, ChatCompletionChunk, ChatCompletionMessage, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion import Choice
 from openai.types.chat.chat_completion_message_tool_call import Function
@@ -63,7 +63,6 @@ def mock_chat_completion_chunk_with_tools(openai_mock_stream):
                 )
             ],
             created=int(datetime.now().timestamp()),
-            usage={"prompt_tokens": 57, "completion_tokens": 40, "total_tokens": 97},
         )
         mock_chat_completion_create.return_value = openai_mock_stream(
             completion, cast_to=None, response=None, client=None
@@ -407,9 +406,10 @@ class TestOpenAIChatGenerator:
             response = component.run([ChatMessage.from_user("What's the weather like in Paris?")])
 
         # ensure that the tools are passed to the OpenAI API
-        assert mock_chat_completion_create.call_args[1]["tools"] == [
-            {"type": "function", "function": {**tools[0].tool_spec, "strict": True}}
-        ]
+        function_spec = {**tools[0].tool_spec}
+        function_spec["strict"] = True
+        function_spec["parameters"]["additionalProperties"] = False
+        assert mock_chat_completion_create.call_args[1]["tools"] == [{"type": "function", "function": function_spec}]
 
         assert len(response["replies"]) == 1
         message = response["replies"][0]
